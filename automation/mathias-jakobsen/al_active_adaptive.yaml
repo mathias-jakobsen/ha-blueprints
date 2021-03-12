@@ -163,13 +163,11 @@ action:
               - platform: state
                 entity_id: !input al_entity
                 attribute: id
-              - platform: state
-                entity_id: !input triggers
-                to: "off"
+              - platform: template
+                value_template: "{{ expand(triggers)|selectattr('state', 'eq', 'on')|list|count == 0 }}"
           - choose:
               - conditions:
                   - "{{ state_attr(al_entity, 'status') == 'active' and state_attr(al_entity, 'id') == id }}"
-                  - "{{ expand(triggers)|selectattr('state', 'eq', 'on')|list|count == 0 }}"
                 sequence:
                   - delay: !input duration
                   - service: automatic_lighting.turn_off
