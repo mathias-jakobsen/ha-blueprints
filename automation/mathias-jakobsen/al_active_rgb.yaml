@@ -104,6 +104,12 @@ blueprint:
           min: 1
           max: 100000
           unit_of_measurement: s
+    conditions:
+      name: Conditions
+      description: A list of custom conditions that must be true for the automation to run.
+      default: []
+      selector:
+        object:
 
 max_exceeded: silent
 mode: restart
@@ -123,6 +129,7 @@ variables:
   illuminance_threshold: !input illuminance_threshold
   raw_triggers: !input triggers
   triggers: "{{ (raw_triggers|replace(' ', '')).split(',') }}"
+  triggers_on_count: "{{ expand(triggers)|selectattr('state', 'eq', 'on')|list|count }}"
 
 trigger:
   - platform: event
@@ -136,6 +143,7 @@ action:
   - variables:
       is_request_event: "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'request' }}"
       is_reset_event: "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'reset' }}"
+      is_state_trigger: "{{ trigger.platform == 'state' }}"
   - choose:
       - conditions:
           - "{{ is_reset_event }}"
@@ -146,31 +154,40 @@ action:
               lights: !input lights
 
       - conditions:
+          - "{{ state_attr(al_entity, 'status') == 'blocked' }}"
           - condition: or
             conditions:
-              - condition: and
-                conditions:
-                  - "{{ trigger.platform == 'state' and trigger.to_state.state == 'on' }}"
-                  - "{{ state_attr(al_entity, 'status') == 'blocked' }}"
+              - "{{ is_request_event and triggers_on_count > 0 }}"
+              - "{{ is_state_trigger }}"
+        sequence:
+          - service: automatic_lighting.block
+            data:
+              entity_id: !input al_entity
+
+      - conditions:
+          - condition: or
+            conditions:
               - condition: and
                 conditions:
                   - condition: or
                     conditions:
                       - condition: and
                         conditions:
-                          - "{{ trigger.platform == 'state' and trigger.to_state.state == 'on' }}"
+                          - "{{ is_state_trigger }}"
                           - "{{ state_attr(al_entity, 'status') == 'idle' or (state_attr(al_entity, 'status') == 'active' and state_attr(al_entity, 'id') != id) }}"
                       - condition: and
                         conditions:
                           - "{{ is_request_event }}"
-                          - "{{ expand(triggers)|selectattr('state', 'eq', 'on')|list|count > 0 }}"
+                          - "{{ triggers_on_count > 0 }}"
                   - condition: time
                     after: !input time_after
                     before: !input time_before
                   - "{{ True if illuminance_entity == '' else states(illuminance_entity)|float <= illuminance_threshold|float }}"
+                  - condition: and
+                    conditions: !input conditions
               - condition: and
                 conditions:
-                  - "{{ trigger.platform == 'state' and trigger.to_state.state == 'on' }}"
+                  - "{{ is_state_trigger }}"
                   - "{{ state_attr(al_entity, 'status') == 'active' and state_attr(al_entity, 'id') == id }}"
         sequence:
           - service: automatic_lighting.turn_on
