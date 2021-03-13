@@ -84,7 +84,7 @@ blueprint:
           max: 100000
           unit_of_measurement: s
     conditions:
-      name: Conditions
+      name: Extra Conditions
       description: A list of custom conditions that must be true for the automation to run.
       default: []
       selector:

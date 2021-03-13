@@ -1,5 +1,5 @@
 blueprint:
-  name: Automatic Lighting - Idle (Kelvin)
+  name: Automatic Lighting - Idle (Kelvin) Copy
   description: |
     Uses the 'Automatic Lighting' integration to create a profile that will turn on lighting when a no trigger is triggered.
   domain: automation
@@ -69,7 +69,7 @@ blueprint:
           step: 25
           unit_of_measurement: K
     conditions:
-      name: Extra Conditions
+      name: Conditions
       description: A list of custom conditions that must be true for the automation to run.
       default: []
       selector:
@@ -94,13 +94,14 @@ trigger:
     event_type: automatic_lighting_event
     event_data:
       entity_id: !input al_entity
+  - platform: state
+    entity_id: !input illuminance_entity
   - platform: time
     at: !input time_after
 action:
   - variables:
       is_request_event: "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'request' }}"
       is_reset_event: "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'reset' }}"
-
   - choose:
       - conditions:
           - "{{ is_reset_event }}"
@@ -110,45 +111,39 @@ action:
               entity_id: !input al_entity
               lights: !input lights
 
-  - repeat:
-      sequence:
-        - choose:
-            - conditions:
-                - "{{ not is_reset_event }}"
-                - "{{ states(illuminance_entity)|float <= illuminance_threshold|float }}"
-                - condition: time
-                  after: !input time_after
-                  before: !input time_before
-                - condition: and
-                  conditions: !input conditions
-              sequence:
-                - choose:
-                    - conditions:
-                        - condition: or
-                          conditions:
-                            - "{{ is_request_event }}"
-                            - "{{ state_attr(al_entity, 'status') == 'idle' and state_attr(al_entity, 'id') != id }}"
-                      sequence:
-                        - service: automatic_lighting.turn_on
-                          data:
-                            entity_id: !input al_entity
-                            id: "{{ id }}"
-                            status: idle
-                            lights: !input lights
-                            brightness_pct: !input brightness
-                            kelvin: !input color_temp_kelvin
-          default:
-            - choose:
-                - conditions:
-                    - "{{ state_attr(al_entity, 'status') == 'idle' and state_attr(al_entity, 'id') == id }}"
-                  sequence:
-                    - service: automatic_lighting.turn_off
-                      data:
-                        entity_id: !input al_entity
-        - wait_for_trigger:
-            - platform: state
-              entity_id: !input illuminance_entity
-            - platform: time
-              at: !input time_before
-
-      until: "{{ False }}"
+      - conditions:
+          - condition: or
+            conditions:
+              - "{{ is_request_event }}"
+              - "{{ state_attr(al_entity, 'status') == 'idle' and state_attr(al_entity, 'id') != id }}"
+          - "{{ states(illuminance_entity)|float <= illuminance_threshold|float }}"
+          - condition: time
+            after: !input time_after
+            before: !input time_before
+          - condition: and
+            conditions: !input conditions
+        sequence:
+          - service: automatic_lighting.turn_on
+            data:
+              entity_id: !input al_entity
+              id: "{{ id }}"
+              status: idle
+              lights: !input lights
+              brightness_pct: !input brightness
+              kelvin: !input color_temp_kelvin
+          - wait_for_trigger:
+              - platform: state
+                entity_id: !input al_entity
+                from: "idle"
+              - platform: numeric_state
+                entity_id: !input illuminance_entity
+                above: !input illuminance_threshold
+              - platform: time
+                at: !input time_before
+          - choose:
+              - conditions:
+                  - "{{ state_attr(al_entity, 'status') == 'idle' and state_attr(al_entity, 'id') == id }}"
+                sequence:
+                  - service: automatic_lighting.turn_off
+                    data:
+                      entity_id: !input al_entity
