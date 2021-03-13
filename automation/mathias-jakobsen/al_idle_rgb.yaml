@@ -148,7 +148,7 @@ action:
                     - conditions:
                         - condition: or
                           conditions:
-                            - "{{ is_request_event }}"
+                            - "{{ is_request_event and loop.index == 0 }}"
                             - "{{ state_attr(al_entity, 'status') == 'idle' and state_attr(al_entity, 'id') != id }}"
                       sequence:
                         - service: automatic_lighting.turn_on
