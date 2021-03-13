@@ -68,6 +68,12 @@ blueprint:
           max: 6500
           step: 25
           unit_of_measurement: K
+    conditions:
+      name: Conditions
+      description: A list of custom conditions that must be true for the automation to run.
+      default: []
+      selector:
+        object:
 
 max_exceeded: silent
 mode: restart
@@ -88,9 +94,8 @@ trigger:
     event_type: automatic_lighting_event
     event_data:
       entity_id: !input al_entity
-  - platform: numeric_state
+  - platform: state
     entity_id: !input illuminance_entity
-    below: !input illuminance_threshold
   - platform: time
     at: !input time_after
 action:
@@ -115,6 +120,8 @@ action:
           - condition: time
             after: !input time_after
             before: !input time_before
+          - condition: and
+            conditions: !input conditions
         sequence:
           - service: automatic_lighting.turn_on
             data:
