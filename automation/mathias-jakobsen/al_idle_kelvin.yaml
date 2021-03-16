@@ -94,27 +94,32 @@ trigger:
     event_type: automatic_lighting_event
     event_data:
       entity_id: !input al_entity
-  - platform: time
-    at: !input time_after
+      type: reset
 action:
-  - variables:
-      is_request_event: "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'request' }}"
-      is_reset_event: "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'reset' }}"
-
-  - choose:
-      - conditions:
-          - "{{ is_reset_event }}"
-        sequence:
-          - service: automatic_lighting.track_lights
-            data:
-              entity_id: !input al_entity
-              lights: !input lights
+  - service: automatic_lighting.track_lights
+    data:
+      entity_id: !input al_entity
+      lights: !input lights
 
   - repeat:
+      while: "{{ True }}"
       sequence:
+        - wait_for_trigger:
+            - platform: event
+              event_type: automatic_lighting_event
+              event_data:
+                entity_id: !input al_entity
+                type: request
+            - platform: time
+              at:
+                - !input time_after
+                - !input time_before
+            - platform: state
+              entity_id: !input illuminance_entity
+        - variables:
+            is_request_event: "{{ wait.trigger.platform == 'event' and wait.trigger.event.event_type == 'automatic_lighting_event' and wait.trigger.event.data.type == 'request' }}"
         - choose:
             - conditions:
-                - "{{ not is_reset_event }}"
                 - "{{ states(illuminance_entity)|float <= illuminance_threshold|float }}"
                 - condition: time
                   after: !input time_after
@@ -126,7 +131,7 @@ action:
                     - conditions:
                         - condition: or
                           conditions:
-                            - "{{ is_request_event and loop.index == 0 }}"
+                            - "{{ is_request_event }}"
                             - "{{ state_attr(al_entity, 'status') == 'idle' and state_attr(al_entity, 'id') != id }}"
                       sequence:
                         - service: automatic_lighting.turn_on
@@ -145,10 +150,3 @@ action:
                     - service: automatic_lighting.turn_off
                       data:
                         entity_id: !input al_entity
-        - wait_for_trigger:
-            - platform: state
-              entity_id: !input illuminance_entity
-            - platform: time
-              at: !input time_before
-
-      until: "{{ False }}"
