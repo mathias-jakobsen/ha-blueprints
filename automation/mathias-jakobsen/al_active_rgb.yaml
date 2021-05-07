@@ -206,7 +206,7 @@ action:
                     id: "{{ id }}"
                     status: active
                     lights: !input lights
-                    brightness_pct: "{{ state_attr(adaptive_entity, 'brightness_pct')|int|max(min_brightness) }}"
+                    brightness_pct: !input brightness
                     rgb_color: "{{ [color_red, color_green, color_blue] }}"
 
             - conditions:

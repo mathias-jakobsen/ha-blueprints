@@ -75,6 +75,7 @@ max_exceeded: silent
 mode: restart
 
 variables:
+  adaptive_entity: !input adaptive_entity
   al_entity: !input al_entity
   id: >-
     {% set ns = namespace(unique_id=[]) %}
